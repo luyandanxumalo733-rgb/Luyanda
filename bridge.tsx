@@ -1,0 +1,259 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, Cloud, KeyRound, ShieldCheck, Copy, Check, ExternalLink, Eye, EyeOff, RefreshCw, Lock } from "lucide-react";
+import robotLogo from "@/assets/robot-logo.png";
+import { getCredentialStatus } from "@/lib/credentials.functions";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/bridge")({
+  head: () => ({
+    meta: [
+      { title:"Direct Hands-Free Webhook Bridge" },
+      { name: "description", content:"Connect your trading robot directly to your MT5 terminal completely free using automated webhooks."},
+    ],
+  }),
+  component: BridgePage,
+});
+
+function CopyBtn({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); } catch { /* */ }
+      }}
+      className="ml-2 inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-white/10"
+    >
+      {done ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {done ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function BridgePage() {
+  const [webhook, setWebhook] = useState("");
+  const fetchStatus = useServerFn(getCredentialStatus);
+  const [status, setStatus] = useState<Awaited<ReturnType<typeof getCredentialStatus>> | null>(null);
+  const [reveal, setReveal] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const s = await fetchStatus({ data: {} });
+      setStatus(s);
+    } catch {
+      toast.error("Could not load credential status");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    try {
+      const w = localStorage.getItem("sc_alert_webhook");
+      if (w) setWebhook(w);
+    } catch { /* */ }
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function maskedDisplay(last4: string, length: number) {
+    if (!length) return "— not set —";
+    if (reveal) return `•••• •••• •••• ${last4}  (${length} chars)`;
+    return `•••• •••• •••• ••••`;
+  }
+
+  function rotate() {
+    toast.message("Rotate webhook token", {
+  description: "Open Project Settings -> Secrets and update your MT5_WEBHOOK_URL and WEBHOOK_SECRET_KEY to enable direct execution.",
+  duration: 8000,
+});
+  }
+
+  function saveWebhook() {
+    try { localStorage.setItem("sc_alert_webhook", webhook.trim()); } catch { /* */ }
+    toast.success("Webhook saved");
+  }
+
+  return (
+    <div
+      className="min-h-screen text-foreground"
+      style={{
+        backgroundColor: "oklch(0.13 0.04 260)",
+        backgroundImage: `radial-gradient(80% 50% at 50% 0%, oklch(0.55 0.22 255 / 0.35), transparent), url(${robotLogo})`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "top center, center 60%",
+        backgroundSize: "auto, 70%",
+      }}
+    >
+      <div className="min-h-screen bg-[oklch(0.13_0.04_260_/_0.82)]">
+        <div className="mx-auto max-w-md px-4 pb-24 pt-6">
+          <header className="flex items-center gap-2">
+            <Link to="/" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-[oklch(0.78_0.18_230)]">MetaApi.cloud</div>
+              <h1 className="text-lg font-bold">MT5 Cloud Bridge</h1>
+            </div>
+          </header>
+
+          <section className="mt-5 rounded-2xl border border-white/10 bg-[oklch(0.18_0.06_260_/_0.7)] p-4">
+            <div className="flex items-center gap-2 text-[oklch(0.78_0.18_230)]">
+              <Cloud className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-widest">Step 1 – Setup Your MT5 Webhook</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+                      Install a free Webhook Receiver EA on your MT5 terminal (or a remote Windows VPS). Copy your terminal's public <b className="text-foreground">IP Address</b> and secure <b className="text-foreground">Access Token</b> to route trades directly to your broker for free.
+ </p>
+  110  <a
+    href="/settings/tokens"
+  target="_blank"
+   rel="noreferrer"
+   className="mt-3 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white"
+   style={{
+      background: "linear-gradient(135deg, oklch(0.62 0.22 255), oklch(0.40 0.18 260))",
+    boxShadow: "0 0 18px -4px oklch(0.62 0.22 255)"    }}
+ >
+   <ExternalLink className="h-4 w-4" /> Open Token Settings
+ </a>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[oklch(0.18_0.06_260_/_0.7)] p-4">
+            <div className="flex items-center gap-2 text-[oklch(0.78_0.18_230)]">
+              <KeyRound className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-widest">Step 2 — Add Secrets</span>
+            </div>
+             <p className="mt-2 text-sm text-muted-foreground">
+1   In Project Settings &rarr; Secrets, add these two values from your provider:
+  </p>
+  <ul className="mt-2 space-y-1 text-[12px]">
+   <li className="flex items-center justify-between rounded-lg border border-white/10 bg-black/40 px-2 py-1.5">
+      <code className="text-emerald-200">PROVIDER_TOKEN</code>
+      <CopyBtn text="PROVIDER_TOKEN" />
+    </li>
+<li className="flex items-center justify-between rounded-lg border border-white/10 bg-black/40 px-2 py-1.5">
+                     <code className="text-emerald-200">PROVIDER_ACCOUNT_ID</code>
+   <CopyBtn text="PROVIDER_ACCOUNT_ID" />
+   </li>
+ <li className="flex items-center justify-between rounded-lg border border-white/10 bg-black/40 px-2 py-1.5">
+  <code className="text-emerald-200">PROVIDER_REGION</code>
+   <span className="text-[10px] text-muted-foreground">optional &bull; default new-york</span>
+   </li>
+
+            </ul>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[oklch(0.18_0.06_260_/_0.7)] p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[oklch(0.78_0.18_230)]">
+                <Lock className="h-4 w-4" />
+                <span className="text-xs uppercase tracking-widest">Credential Vault</span>
+              </div>
+              <button
+                onClick={() => setReveal((r) => !r)}
+                className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-white/10"
+              >
+                {reveal ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                {reveal ? "Hide" : "Reveal mask"}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Secrets are encrypted at rest in Lovable Cloud and injected into server functions at request time.
+              They never reach the browser, never appear in client bundles, and outbound bridge responses are scrubbed before leaving the server.
+            </p>
+
+            <div className="mt-3 space-y-2 text-[11px]">
+              <div className="rounded-lg border border-white/10 bg-black/40 p-2.5">
+                <div className="flex items-center justify-between">
+                  <code className="text-emerald-200">METAAPI_TOKEN</code>
+                  <span className={`text-[10px] uppercase tracking-widest ${status?.token.present ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    {status?.token.present ? "set" : "missing"}
+                  </span>
+                </div>
+                <div className="mt-1 font-mono text-[12px] tracking-widest">{status ? maskedDisplay(status.token.last4, status.token.length) : "…"}</div>
+                {status?.token.fingerprint && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">fingerprint <span className="font-mono">{status.token.fingerprint}</span></div>
+                )}
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/40 p-2.5">
+                <div className="flex items-center justify-between">
+                  <code className="text-emerald-200">METAAPI_ACCOUNT_ID</code>
+                  <span className={`text-[10px] uppercase tracking-widest ${status?.accountId.present ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    {status?.accountId.present ? "set" : "missing"}
+                  </span>
+                </div>
+                <div className="mt-1 font-mono text-[12px] tracking-widest">{status ? maskedDisplay(status.accountId.last4, status.accountId.length) : "…"}</div>
+                {status?.accountId.fingerprint && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">fingerprint <span className="font-mono">{status.accountId.fingerprint}</span></div>
+                )}
+              </div>
+               <div className="rounded-lg border border-white/10 bg-black/40 p-2.5">
+ <div className="flex items-center justify-between">
+    <code className="text-emerald-200">PROVIDER_REGION</code>
+   <span className="font-mono text-[11px]">{status?.region ?? "-"}</span>
+  </div>
+</div>
+ </div>
+
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={refresh}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest hover:bg-white/10 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+              </button>
+              <button
+                onClick={rotate}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-white"
+                style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 30), oklch(0.45 0.18 25))", boxShadow: "0 0 18px -4px oklch(0.62 0.22 30)" }}
+              >
+                 <RefreshCw className="h-3.5 w-3.5" /> Rotate credentials
+</button>
+ </div>
+ <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+ Rotation flow: revoke old token at provider &rarr; update secrets in Project Settings &rarr; tap Refresh. Fingerprint above will change.
+ </p>
+</section>
+
+
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[oklch(0.18_0.06_260_/_0.7)] p-4">
+            <div className="flex items-center gap-2 text-[oklch(0.78_0.18_230)]">
+                <ShieldCheck className="h-4 w-4" />
+  <span className="text-xs uppercase tracking-widest">Step 3 - Validate &amp; Trade</span>
+ </div>
+ <p className="mt-2 text-sm text-muted-foreground">
+  Run the Setup Wizard to verify the cloud bridge, then flip Algo Trading on the dashboard. Every order is sent to 
+  <span className="font-mono text-emerald-200">POST /users/current/accounts/.../trade</span> with TP/SL in pips.
+ </p>
+
+            <Link to="/setup" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[oklch(0.78_0.18_230)] underline-offset-2 hover:underline">
+              Open Setup Wizard →
+            </Link>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-white/10 bg-[oklch(0.18_0.06_260_/_0.7)] p-4">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Optional — Alert Webhook</div>
+            <p className="mt-1 text-[11px] text-muted-foreground">Get pinged when the bridge fails or latency spikes (Discord / Slack / your own URL).</p>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={webhook}
+                onChange={(e) => setWebhook(e.target.value)}
+                placeholder="https://hooks.slack.com/…"
+                className="flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs font-mono"
+              />
+              <button onClick={saveWebhook} className="rounded-lg border border-white/15 bg-white/5 px-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-white/10">Save</button>
+            </div>
+          </section>
+
+          <p className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-[oklch(0.78_0.18_230)]">
+            Powered by Algo Trading
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
